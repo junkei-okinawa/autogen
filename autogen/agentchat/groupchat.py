@@ -53,6 +53,9 @@ Then select the next role from {self.agent_names} to play. Only return the role.
                 f"GroupChat is underpopulated with {n_agents} agents. Direct communication would be more efficient."
             )
 
+        if self.messages[-1]["content"] == "":
+            self.messages[-1]["content"] = "NULL"
+        
         final, name = selector.generate_oai_reply(
             self.messages
             + [
