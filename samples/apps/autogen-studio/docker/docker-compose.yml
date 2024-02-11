@@ -1,0 +1,37 @@
+version: "3"
+services:
+  web:
+    container_name: studio_web
+    image: node:18-bookworm-slim
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: always
+    volumes:
+      - ../frontend:/frontend
+    working_dir: /frontend
+    depends_on:
+      - api
+    entrypoint:
+      - sh
+    command:
+      - -c
+      - |
+        cp .env.default .env.development
+        yarn install --check-files && yarn develop -- --host 0.0.0.0
+
+  api:
+    container_name: studio_api
+    image: python:3.11-slim-bookworm
+    ports:
+      - "127.0.0.1:8081:8081"
+    restart: always
+    volumes:
+      - ..:/autogen-studio
+    working_dir: /autogen-studio
+    entrypoint:
+      - sh
+    command:
+      - -c
+      - |
+        pip install -e .
+        uvicorn autogenstudio.web.app:app --host 0.0.0.0 --port 8081 --reload
