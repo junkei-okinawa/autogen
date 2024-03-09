@@ -272,110 +272,21 @@ Then select the next role from {[agent.name for agent in agents]} to play. Only 
             )
         elif n_agents == 2 and self.speaker_selection_method.lower() != "round_robin" and allow_repeat_speaker:
             logger.warning(
-                f"GroupChat is underpopulated with {n_agents} agents. "
-                "Consider setting speaker_selection_method to 'round_robin' or allow_repeat_speaker to False, "
-                "or use direct communication, unless repeated speaker is desired."
+                f"GroupChat is underpopulated with {n_agents} agents. Direct communication would be more efficient."
             )
 
-        if (
-            self.func_call_filter
-            and self.messages
-            and ("function_call" in self.messages[-1] or "tool_calls" in self.messages[-1])
-        ):
-            funcs = []
-            if "function_call" in self.messages[-1]:
-                funcs += [self.messages[-1]["function_call"]["name"]]
-            if "tool_calls" in self.messages[-1]:
-                funcs += [
-                    tool["function"]["name"] for tool in self.messages[-1]["tool_calls"] if tool["type"] == "function"
-                ]
-
-            # find agents with the right function_map which contains the function name
-            agents = [agent for agent in self.agents if agent.can_execute_function(funcs)]
-            if len(agents) == 1:
-                # only one agent can execute the function
-                return agents[0], agents, None
-            elif not agents:
-                # find all the agents with function_map
-                agents = [agent for agent in self.agents if agent.function_map]
-                if len(agents) == 1:
-                    return agents[0], agents, None
-                elif not agents:
-                    raise ValueError(
-                        f"No agent can execute the function {', '.join(funcs)}. "
-                        "Please check the function_map of the agents."
-                    )
-        # remove the last speaker from the list to avoid selecting the same speaker if allow_repeat_speaker is False
-        agents = [agent for agent in agents if agent != last_speaker] if allow_repeat_speaker is False else agents
-
-        # Filter agents with allowed_speaker_transitions_dict
-
-        is_last_speaker_in_group = last_speaker in self.agents
-
-        # this condition means last_speaker is a sink in the graph, then no agents are eligible
-        if last_speaker not in self.allowed_speaker_transitions_dict and is_last_speaker_in_group:
-            raise NoEligibleSpeakerException(
-                f"Last speaker {last_speaker.name} is not in the allowed_speaker_transitions_dict."
-            )
-        # last_speaker is not in the group, so all agents are eligible
-        elif last_speaker not in self.allowed_speaker_transitions_dict and not is_last_speaker_in_group:
-            graph_eligible_agents = []
-        else:
-            # Extract agent names from the list of agents
-            graph_eligible_agents = [
-                agent for agent in agents if agent in self.allowed_speaker_transitions_dict[last_speaker]
+        if self.messages[-1]["content"] == "":
+            self.messages[-1]["content"] = "NULL"
+        
+        final, name = selector.generate_oai_reply(
+            self.messages
+            + [
+                {
+                    "role": "system",
+                    "content": f"Read the above conversation. Then select the next role from {self.agent_names} to play. Only return the role.",
+                }
             ]
-
-        # If there is only one eligible agent, just return it to avoid the speaker selection prompt
-        if len(graph_eligible_agents) == 1:
-            return graph_eligible_agents[0], graph_eligible_agents, None
-
-        # If there are no eligible agents, return None, which means all agents will be taken into consideration in the next step
-        if len(graph_eligible_agents) == 0:
-            graph_eligible_agents = None
-
-        # Use the selected speaker selection method
-        select_speaker_messages = None
-        if self.speaker_selection_method.lower() == "manual":
-            selected_agent = self.manual_select_speaker(graph_eligible_agents)
-        elif self.speaker_selection_method.lower() == "round_robin":
-            selected_agent = self.next_agent(last_speaker, graph_eligible_agents)
-        elif self.speaker_selection_method.lower() == "random":
-            selected_agent = self.random_select_speaker(graph_eligible_agents)
-        else:
-            selected_agent = None
-            select_speaker_messages = self.messages.copy()
-            # If last message is a tool call or function call, blank the call so the api doesn't throw
-            if select_speaker_messages[-1].get("function_call", False):
-                select_speaker_messages[-1] = dict(select_speaker_messages[-1], function_call=None)
-            if select_speaker_messages[-1].get("tool_calls", False):
-                select_speaker_messages[-1] = dict(select_speaker_messages[-1], tool_calls=None)
-            select_speaker_messages = select_speaker_messages + [
-                {"role": "system", "content": self.select_speaker_prompt(graph_eligible_agents)}
-            ]
-        return selected_agent, graph_eligible_agents, select_speaker_messages
-
-    def select_speaker(self, last_speaker: Agent, selector: ConversableAgent) -> Agent:
-        """Select the next speaker."""
-        selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
-        if selected_agent:
-            return selected_agent
-        # auto speaker selection
-        selector.update_system_message(self.select_speaker_msg(agents))
-        final, name = selector.generate_oai_reply(messages)
-        return self._finalize_speaker(last_speaker, final, name, agents)
-
-    async def a_select_speaker(self, last_speaker: Agent, selector: ConversableAgent) -> Agent:
-        """Select the next speaker."""
-        selected_agent, agents, messages = self._prepare_and_select_agents(last_speaker)
-        if selected_agent:
-            return selected_agent
-        # auto speaker selection
-        selector.update_system_message(self.select_speaker_msg(agents))
-        final, name = await selector.a_generate_oai_reply(messages)
-        return self._finalize_speaker(last_speaker, final, name, agents)
-
-    def _finalize_speaker(self, last_speaker: Agent, final: bool, name: str, agents: Optional[List[Agent]]) -> Agent:
+        )
         if not final:
             # the LLM client is None, thus no reply is generated. Use round robin instead.
             return self.next_agent(last_speaker, agents)
