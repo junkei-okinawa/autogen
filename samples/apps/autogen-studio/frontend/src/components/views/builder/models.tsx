@@ -1,12 +1,13 @@
 import {
   ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import { Button, Input, Modal, message } from "antd";
+import { Button, Dropdown, Input, MenuProps, Modal, message } from "antd";
 import * as React from "react";
 import { IModelConfig, IStatus } from "../../types";
 import { appContext } from "../../../hooks/provider";
@@ -17,13 +18,7 @@ import {
   timeAgo,
   truncateText,
 } from "../../utils";
-import {
-  BounceLoader,
-  Card,
-  CardHoverBar,
-  LaunchButton,
-  LoadingOverlay,
-} from "../../atoms";
+import { BounceLoader, Card, CardHoverBar, LoadingOverlay } from "../../atoms";
 import TextArea from "antd/es/input/TextArea";
 
 const ModelsView = ({}: any) => {
@@ -424,6 +419,54 @@ const ModelsView = ({}: any) => {
     );
   };
 
+  const uploadModel = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const contents = e.target.result;
+        if (contents) {
+          try {
+            const model = JSON.parse(contents);
+            if (model) {
+              setNewModel(model);
+              setShowNewModelModal(true);
+            }
+          } catch (e) {
+            message.error("Invalid model file");
+          }
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const modelsMenuItems: MenuProps["items"] = [
+    // {
+    //   type: "divider",
+    // },
+    {
+      key: "uploadmodel",
+      label: (
+        <div>
+          <ArrowUpTrayIcon className="w-5 h-5 inline-block mr-2" />
+          Upload Model
+        </div>
+      ),
+    },
+  ];
+
+  const modelsMenuItemOnClick: MenuProps["onClick"] = ({ key }) => {
+    if (key === "uploadmodel") {
+      uploadModel();
+      return;
+    }
+  };
+
   return (
     <div className="text-primary  ">
       <ModelModal
@@ -457,16 +500,23 @@ const ModelsView = ({}: any) => {
               {" "}
               Models ({modelRows.length}){" "}
             </div>
-            <LaunchButton
-              className="text-sm p-2 px-3"
-              onClick={() => {
-                setShowNewModelModal(true);
-              }}
-            >
-              {" "}
-              <PlusIcon className="w-5 h-5 inline-block mr-1" />
-              New Model
-            </LaunchButton>
+            <div>
+              <Dropdown.Button
+                type="primary"
+                menu={{
+                  items: modelsMenuItems,
+                  onClick: modelsMenuItemOnClick,
+                }}
+                placement="bottomRight"
+                trigger={["click"]}
+                onClick={() => {
+                  setShowNewModelModal(true);
+                }}
+              >
+                <PlusIcon className="w-5 h-5 inline-block mr-1" />
+                New Model
+              </Dropdown.Button>
+            </div>
           </div>
 
           <div className="text-xs mb-2 pb-1  ">

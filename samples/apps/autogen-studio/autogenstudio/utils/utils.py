@@ -270,9 +270,6 @@ install via pip and use --quiet option.
     # overwrite skills.py in work_dir
     with open(os.path.join(work_dir, "skills.py"), "w", encoding="utf-8") as f:
         f.write(prompt)
-    # overwrite skills.py in work_dir
-    with open(os.path.join(work_dir, "skills.py"), "w", encoding="utf-8") as f:
-        f.write(prompt)
 
     return instruction + prompt
 
@@ -407,4 +404,37 @@ def test_model(model: Model):
     sanitized_model = sanitize_model(model)
     client = OpenAIWrapper(config_list=[sanitized_model])
     response = client.create(messages=[{"role": "user", "content": "2+2="}], cache_seed=None)
+    return response.choices[0].message.content
+
+
+# summarize_chat_history (messages, model) .. returns a summary of the chat history
+
+
+def summarize_chat_history(task: str, messages: List[Dict[str, str]], model: Model):
+    """
+    Summarize the chat history using the model endpoint and returning the response.
+    """
+
+    sanitized_model = sanitize_model(model)
+    client = OpenAIWrapper(config_list=[sanitized_model])
+    summarization_system_prompt = f"""
+    You are a helpful assistant that is able to review the chat history between a set of agents (userproxy agents, assistants etc) as they try to address a given TASK and provide a summary. Be SUCCINCT but also comprehensive enough to allow others (who cannot see the chat history) understand and recreate the solution.
+
+    The task requested by the user is:
+    ===
+    {task}
+    ===
+    The summary should focus on extracting the actual solution to the task from the chat history (assuming the task was addressed) such that any other agent reading the summary will understand what the actual solution is. Use a neutral tone and DO NOT directly mention the agents. Instead only focus on the actions that were carried out (e.g. do not say 'assistant agent generated some code visualization code ..'  instead say say 'visualization code was generated ..' ).
+    """
+    summarization_prompt = [
+        {
+            "role": "system",
+            "content": summarization_system_prompt,
+        },
+        {
+            "role": "user",
+            "content": f"Summarize the following chat history. {str(messages)}",
+        },
+    ]
+    response = client.create(messages=summarization_prompt, cache_seed=None)
     return response.choices[0].message.content

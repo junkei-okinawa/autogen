@@ -291,6 +291,31 @@ const WorkflowView = ({}: any) => {
     );
   };
 
+  const uploadWorkflow = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = (e: any) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const contents = e.target.result;
+        if (contents) {
+          try {
+            const workflow = JSON.parse(contents);
+            // TBD validate that it is a valid workflow
+            setNewWorkflow(workflow);
+            setShowNewWorkflowModal(true);
+          } catch (err) {
+            message.error("Invalid workflow file");
+          }
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
   const workflowTypes: MenuProps["items"] = [
     {
       key: "twoagents",
@@ -325,37 +350,17 @@ const WorkflowView = ({}: any) => {
     },
   ];
 
+  const showWorkflow = (config: IFlowConfig) => {
+    setSelectedWorkflow(config);
+    setShowWorkflowModal(true);
+  };
+
   const workflowTypesOnClick: MenuProps["onClick"] = ({ key }) => {
     if (key === "uploadworkflow") {
-      // upload workflow
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json";
-      input.onchange = (e: any) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const text = e.target?.result;
-          if (text) {
-            try {
-              const workflow = JSON.parse(text as string);
-              // TBD validate that it is a valid workflow
-              setNewWorkflow(workflow);
-              setShowNewWorkflowModal(true);
-            } catch (err) {
-              message.error("Invalid workflow file");
-            }
-          }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
+      uploadWorkflow();
       return;
-    } else {
-      const newConfig = sampleWorkflowConfig(key);
-      setNewWorkflow(newConfig);
-      setShowNewWorkflowModal(true);
     }
+    showWorkflow(sampleWorkflowConfig(key));
   };
 
   return (
@@ -389,25 +394,18 @@ const WorkflowView = ({}: any) => {
               Workflows ({workflowRows.length}){" "}
             </div>
             <div className=" ">
-              <Dropdown
+              <Dropdown.Button
+                type="primary"
                 menu={{ items: workflowTypes, onClick: workflowTypesOnClick }}
                 placement="bottomRight"
                 trigger={["click"]}
+                onClick={() => {
+                  showWorkflow(sampleWorkflowConfig());
+                }}
               >
-                <div
-                  className="inline-flex    rounded   hover:border-accent duration-300 hover:text-accent"
-                  role="button"
-                  onClick={(e) => {
-                    // add agent to flowSpec?.groupchat_config.agents
-                  }}
-                >
-                  <LaunchButton className=" text-sm p-2 px-3">
-                    {" "}
-                    <PlusIcon className="w-5 h-5 inline-block mr-1" />
-                    New Workflow
-                  </LaunchButton>
-                </div>
-              </Dropdown>
+                <PlusIcon className="w-5 h-5 inline-block mr-1" />
+                New Workflow
+              </Dropdown.Button>
             </div>
           </div>
           <div className="text-xs mb-2 pb-1  ">
