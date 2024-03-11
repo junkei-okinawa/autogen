@@ -717,8 +717,11 @@ def upsert_agent(agent_flow_spec: AgentFlowSpec, dbmanager: DBManager) -> List[D
         }
         update_item("agents", agent_flow_spec.id, updated_data, dbmanager)
     else:
+        # query = (
+        #     "INSERT INTO agents (id, user_id, timestamp, config, type, description, skills) VALUES (?, ?, ?, ?, ?,?)"
+        # )
         query = (
-            "INSERT INTO agents (id, user_id, timestamp, config, type, description, skills) VALUES (?, ?, ?, ?, ?,?)"
+            "INSERT INTO agents (id, user_id, timestamp, config, type, skills) VALUES (?, ?, ?, ?, ?, ?)"
         )
         config_json = json.dumps(agent_flow_spec.config.dict())
         args = (
